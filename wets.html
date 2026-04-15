@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dork Scanner & Live Checker</title>
+    <style>
+        :root {
+            --matrix-green: #00ff41;
+            --dark-bg: #0a0a0a;
+            --panel-bg: #161616;
+            --dead-red: #ff3e3e;
+            --border: #333;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--dark-bg);
+            color: var(--matrix-green);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .wrapper {
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border: 1px solid var(--matrix-green);
+            padding: 10px;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 800px) {
+            .main-layout { grid-template-columns: 1fr; }
+        }
+
+        .section {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 4px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            font-size: 1.2em;
+            margin-top: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            color: #fff;
+        }
+
+        /* Dork List Styling */
+        .dork-container {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 5px;
+        }
+
+        .dork-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #222;
+            font-size: 0.85em;
+        }
+
+        .dork-row:hover {
+            background: #222;
+        }
+
+        .btn-search {
+            background: var(--matrix-green);
+            color: #000;
+            text-decoration: none;
+            padding: 3px 8px;
+            font-weight: bold;
+            font-size: 0.75em;
+            border-radius: 2px;
+        }
+
+        /* Checker Styling */
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-green);
+            padding: 10px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--matrix-green);
+            color: #000;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .action-btn:hover { background: #00cc33; }
+
+        .results-log {
+            flex-grow: 1;
+            overflow-y: auto;
+            background: #000;
+            border: 1px solid #222;
+            padding: 10px;
+            font-size: 0.8em;
+        }
+
+        .res-item { margin-bottom: 5px; word-break: break-all; }
+        .live { color: var(--matrix-green); }
+        .dead { color: var(--dead-red); }
+
+        .stats {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-around;
+            font-size: 0.9em;
+            background: #222;
+            padding: 5px;
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: var(--matrix-green); }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <header>
+        <h1>DORKING ENGINE & URL ANALYZER</h1>
+    </header>
+
+    <div class="main-layout">
+        <!-- Left Side: Dork List -->
+        <div class="section">
+            <h2>1. Google Dorks List</h2>
+            <div class="dork-container" id="dorkList">
+                <!-- Dorks will be injected here by JS -->
+            </div>
+        </div>
+
+        <!-- Right Side: Checker -->
+        <div class="section">
+            <h2>2. URL Status Checker</h2>
+            <textarea id="urlInput" placeholder="Paste found URLs here...&#10;Example: http://site.com/page.php?id=1"></textarea>
+            <button class="action-btn" onclick="startCheck()">START SCANNING</button>
+            
+            <div class="results-log" id="resultsLog">
+                <div style="color: #666;">Waiting for URLs...</div>
+            </div>
+
+            <div class="stats">
+                <span>Checked: <span id="totalChecked">0</span></span>
+                <span class="live">Live: <span id="liveCount">0</span></span>
+                <span class="dead">Dead: <span id="deadCount">0</span></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // The list of dorks provided by you
+    const dorks = [
+        "inurl:index.php?id=", "inurl:trainers.php?id=", "inurl:buy.php?category=", "inurl:article.php?ID=", 
+        "inurl:play_old.php?id=", "inurl:declaration_more.php?decl_id=", "inurl:pageid=", "inurl:games.php?id=", 
+        "inurl:page.php?file=", "inurl:newsDetail.php?id=", "inurl:gallery.php?id=", "inurl:article.php?id=", 
+        "inurl:show.php?id=", "inurl:staff_id=", "inurl:newsitem.php?num=", "inurl:readnews.php?id=", 
+        "inurl:top10.php?cat=", "inurl:historialeer.php?num=", "inurl:reagir.php?num=", "inurl:Stray-Questions-View.php?num=", 
+        "inurl:forum_bds.php?num=", "inurl:game.php?id=", "inurl:view_product.php?id=", "inurl:newsone.php?id=", 
+        "inurl:sw_comment.php?id=", "inurl:news.php?id=", "inurl:avd_start.php?avd=", "inurl:event.php?id=", 
+        "inurl:product-item.php?id=", "inurl:sql.php?id=", "inurl:news_view.php?id=", "inurl:select_biblio.php?id=", 
+        "inurl:humor.php?id=", "inurl:aboutbook.php?id=", "inurl:ogl_inet.php?ogl_id=", "inurl:fiche_spectacle.php?id=", 
+        "inurl:communique_detail.php?id=", "inurl:sem.php3?id=", "inurl:kategorie.php4?id=", "inurl:news.php?id=", 
+        "inurl:index.php?id=", "inurl:faq2.php?id=", "inurl:show_an.php?id=", "inurl:preview.php?id=", 
+        "inurl:loadpsb.php?id=", "inurl:opinions.php?id=", "inurl:spr.php?id=", "inurl:pages.php?id=", 
+        "inurl:announce.php?id=", "inurl:clanek.php4?id=", "inurl:participant.php?id=", "inurl:download.php?id=", 
+        "inurl:main.php?id=", "inurl:review.php?id=", "inurl:chappies.php?id=", "inurl:read.php?id=", 
+        "inurl:prod_detail.php?id=", "inurl:viewphoto.php?id=", "inurl:article.php?id=", "inurl:person.php?id=", 
+        "inurl:productinfo.php?id=", "inurl:showimg.php?id=", "inurl:view.php?id=", "inurl:website.php?id=", 
+        "inurl:hosting_info.php?id=", "inurl:gallery.php?id=", "inurl:rub.php?idr=", "inurl:view_faq.php?id=", 
+        "inurl:artikelinfo.php?id=", "inurl:detail.php?ID=", "inurl:index.php?=", "inurl:profile_view.php?id=", 
+        "inurl:category.php?id=", "inurl:publications.php?id=", "inurl:fellows.php?id=", "inurl:downloads_info.php?id=", 
+        "inurl:prod_info.php?id=", "inurl:shop.php?do=part&id=", "inurl:productinfo.php?id=", "inurl:collectionitem.php?id=", 
+        "inurl:band_info.php?id=", "inurl:product.php?id=", "inurl:releases.php?id=", "inurl:ray.php?id=", 
+        "inurl:produit.php?id=", "inurl:pop.php?id=", "inurl:shopping.php?id=", "inurl:productdetail.php?id=", 
+        "inurl:post.php?id=", "inurl:viewshowdetail.php?id=", "inurl:clubpage.php?id=", "inurl:memberInfo.php?id=", 
+        "inurl:section.php?id=", "inurl:theme.php?id=", "inurl:page.php?id=", "inurl:shredder-categories.php?id=", 
+        "inurl:tradeCategory.php?id=", "inurl:product_ranges_view.php?ID=", "inurl:shop_category.php?id=", "inurl:transcript.php?id=", 
+        "inurl:channel_id=", "inurl:item_id=", "inurl:newsid=", "inurl:trainers.php?id=", "inurl:news-full.php?id=", 
+        "inurl:news_display.php?getid=", "inurl:index2.php?option=", "inurl:readnews.php?id=", "inurl:top10.php?cat=", 
+        "inurl:newsone.php?id=", "inurl:event.php?id=", "inurl:product-item.php?id=", "inurl:sql.php?id=", 
+        "inurl:aboutbook.php?id=", "inurl:preview.php?id=", "inurl:loadpsb.php?id=", "inurl:pages.php?id=", 
+        "inurl:material.php?id=", "inurl:clanek.php4?id=", "inurl:announce.php?id=", "inurl:chappies.php?id=", 
+        "inurl:read.php?id=", "inurl:viewapp.php?id=", "inurl:viewphoto.php?id=", "inurl:rub.php?idr=", 
+        "inurl:galeri_info.php?l=", "inurl:review.php?id=", "inurl:iniziativa.php?in=", "inurl:curriculum.php?id=", 
+        "inurl:labels.php?id=", "inurl:story.php?id=", "inurl:look.php?ID=", "inurl:newsone.php?id=", 
+        "inurl:aboutbook.php?id=", "inurl:material.php?id=", "inurl:opinions.php?id=", "inurl:announce.php?id=", 
+        "inurl:rub.php?idr=", "inurl:galeri_info.php?l=", "inurl:tekst.php?idt=", "inurl:newscat.php?id=", 
+        "inurl:newsticker_info.php?idn=", "inurl:rubrika.php?idr=", "inurl:rubp.php?idr=", "inurl:offer.php?idf=", 
+        "inurl:art.php?idm=", "inurl:title.php?id="
+    ];
+
+    // Populate Dork List
+    const dorkListDiv = document.getElementById('dorkList');
+    dorks.forEach(dork => {
+        const row = document.createElement('div');
+        row.className = 'dork-row';
+        row.innerHTML = `
+            <span>${dork}</span>
+            <a href="https://www.google.com/search?q=${encodeURIComponent(dork)}" target="_blank" class="btn-search">GOOGLE</a>
+        `;
+        dorkListDiv.appendChild(row);
+    });
+
+    // Checker Logic
+    let liveCount = 0;
+    let deadCount = 0;
+    let totalChecked = 0;
+
+    async function checkUrl(url) {
+        const log = document.getElementById('resultsLog');
+        const proxy = "https://corsproxy.io/?"; 
+        
+        const item = document.createElement('div');
+        item.className = 'res-item';
+        item.innerText = `[WAITING] ${url}`;
+        log.prepend(item);
+
+        try {
+            const response = await fetch(proxy + encodeURIComponent(url.trim()));
+            if (response.ok) {
+                item.className = 'res-item live';
+                item.innerText = `[LIVE] ${url}`;
+                liveCount++;
+            } else {
+                throw new Error();
+            }
+        } catch (e) {
+            item.className = 'res-item dead';
+            item.innerText = `[DEAD] ${url}`;
+            deadCount++;
+        }
+        
+        totalChecked++;
+        updateStats();
+    }
+
+    function updateStats() {
+        document.getElementById('liveCount').innerText = liveCount;
+        document.getElementById('deadCount').innerText = deadCount;
+        document.getElementById('totalChecked').innerText = totalChecked;
+    }
+
+    function startCheck() {
+        const input = document.getElementById('urlInput').value;
+        const urls = input.split('\n').filter(u => u.trim() !== "");
+        
+        if (urls.length === 0) return alert("Paste some URLs first!");
+
+        // Reset stats
+        liveCount = 0; deadCount = 0; totalChecked = 0;
+        document.getElementById('resultsLog').innerHTML = "";
+        
+        urls.forEach(url => checkUrl(url));
+    }
+</script>
+
+</body>
+</html>
